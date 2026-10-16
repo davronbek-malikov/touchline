@@ -1,0 +1,23 @@
+[project]
+name = "touchline"
+version = "0.1.0"
+description = "AI scouting copilot for football: Claude + LangGraph + RAG, measured with LangSmith"
+requires-python = ">=3.12"
+dependencies = [
+    "duckdb>=1.1",
+    "pandas>=2.2",
+    "pyarrow>=17",
+    "requests>=2.32",
+    "pydantic>=2.9",
+    "rapidfuzz>=3.9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+include = ["data*", "ml*", "agent*", "rag*", "api*", "eval*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
