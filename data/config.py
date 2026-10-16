@@ -24,3 +24,13 @@ SB_COMPETITIONS = [
 ]
 
 MIN_MINUTES = 270
+
+# Calendar year of each StatsBomb competition season; the most recent sample
+# with enough minutes becomes a player's headline event profile.
+SB_YEARS = {
+    (55, 282): 2024, (223, 282): 2024, (43, 106): 2022, (1267, 107): 2024,
+    (9, 281): 2024, (44, 107): 2023, (7, 235): 2023, (7, 108): 2022,
+}
+
+# Transfermarkt season key ("2025" = 2025/26), the last complete season in the snapshot.
+LATEST_SEASON = 2025

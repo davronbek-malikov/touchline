@@ -18,10 +18,13 @@ Full plan: [docs/PLAN.md](docs/PLAN.md)
 - [x] Tests on small fixtures (9 passing)
 
 ## M2 · Tools
-- [ ] Pydantic schemas (`agent/schemas.py`) → strict JSON schemas
-- [ ] `search_players`, `get_player_profile`, `compare_players`
-- [ ] `similar_players`, `estimate_value` (stub until M6), `search_notes` (stub until M5)
-- [ ] Unit tests per tool
+- [x] Pydantic schemas (`agent/schemas.py`) → strict JSON schemas (limits enforced client-side)
+- [x] `player_performance` table: one headline event profile per TM player (594 players)
+- [x] `find_player` (added: name → id lookup), `search_players`, `get_player_profile`, `compare_players`
+- [x] `similar_players` v1 (z-scored cosine; TacticalDNA engine replaces it in M6)
+- [x] Registry + `run_tool()` dispatcher (validation errors → `is_error` results), CLI `python -m agent.tools`
+- [x] Unit tests per tool on a fixture warehouse (31 passing)
+- [ ] `estimate_value` → registers in M6 · `search_notes` → registers in M5
 
 ## M3 · Agent
 - [ ] `agent/claude.py` (caching, stop_reason handling, refusals)

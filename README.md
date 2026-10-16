@@ -32,6 +32,13 @@ py -3.12 -m venv .venv
 .venv/Scripts/python -m pytest
 ```
 
+**Milestone 2 (tools) is built.** Five strict-schema tools Claude can call, in [agent/tools/](agent/tools/):
+`find_player`, `search_players`, `get_player_profile`, `similar_players`, `compare_players`.
+
+```bash
+.venv/Scripts/python -m agent.tools search_players '{"position_groups": ["CB"], "foot": "left", "age_max": 22, "value_max_eur": 10000000}'
+```
+
 Linking accuracy: label `data/labels/link_sample.csv` (fill `is_correct`), then `python -m data.eval_links`.
 
 ## Data credits

@@ -6,8 +6,8 @@ Market layer (Transfermarkt) tables:
   leagues, players, player_seasons, value_history
 Performance layer (StatsBomb, see data/statsbomb_per90.py):
   sb_players, sb_player_per90, sb_percentiles
-Linking (see data/link_players.py):
-  player_links
+Linking (see data/link_players.py, data/performance.py):
+  player_links, player_performance
 """
 import argparse
 from pathlib import Path
@@ -116,8 +116,11 @@ def build(skip_statsbomb: bool = False) -> None:
         from data.statsbomb_per90 import build_performance_layer
         from data.link_players import build_links
 
+        from data.performance import build_player_performance
+
         build_performance_layer(con, SB_DIR)
         build_links(con)
+        build_player_performance(con)
     for (t,) in con.execute("SELECT table_name FROM information_schema.tables ORDER BY 1").fetchall():
         print(f"{t:20s} {con.execute(f'SELECT count(*) FROM {t}').fetchone()[0]:>10,}")
     con.close()
