@@ -158,3 +158,19 @@ def strict_schema(model: type[BaseModel]) -> dict[str, Any]:
     schema = clean(model.model_json_schema())
     schema.pop("description", None)
     return schema
+
+
+class SearchNotesInput(_Strict):
+    query: str = Field(description="What to look for, in plain words: 'press resistance', 'weak in the air'.")
+    player_id: int | None = Field(None, description="Restrict to one player's passages (Transfermarkt id).")
+    limit: int = Field(5, ge=1, le=8, description="Passages to return, 1-8. Default 5.")
+
+
+class ShortlistCandidate(_Strict):
+    player_id: int = Field(description="Transfermarkt player id returned by a tool this conversation.")
+    reason: str = Field(description="One sentence on why this player fits the brief, using tool evidence.")
+
+
+class ProposeShortlistInput(_Strict):
+    candidates: list[ShortlistCandidate] = Field(
+        min_length=1, max_length=8, description="1-8 candidates in ranked order.")

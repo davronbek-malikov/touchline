@@ -46,9 +46,15 @@ Full plan: [docs/PLAN.md](docs/PLAN.md)
 - [ ] Baseline experiment `v1-baseline` (needs `ANTHROPIC_API_KEY`), fill the results table
 
 ## M5 · RAG + reports
-- [ ] Wikipedia "Playing style" fetch
-- [ ] Qdrant hybrid index (bge-small + BM25, RRF)
-- [ ] Cited reports; `review_shortlist` interrupt; Postgres checkpointer
+- [x] Wikipedia "Style of play" fetch via Wikidata's Transfermarkt id (P2446), with URL + revision for CC BY-SA attribution
+- [x] Scout notes store (SQLite now, Postgres at deploy), indexed on write
+- [x] Qdrant hybrid index (bge-small dense + BM25 sparse, RRF fusion, player filter inside the query)
+- [x] `search_notes` tool
+- [x] `propose_shortlist` → `review_shortlist` (`interrupt()`) → `write_reports` → agent; SQLite checkpointer (Postgres at deploy)
+- [x] Cited reports: passages as `document` blocks with citations; profile JSON for numbers
+- [x] CLI: approve shortlists, print cited reports, resume paused threads with `--thread`
+- [x] Eval: auto-approve policy, report_written, citation coverage, report-text grounding; optional LLM judge (`--judge`)
+- [ ] **You:** rate ~30 reports by hand to calibrate the judge before quoting it
 
 ## M6 · ML
 - [ ] LightGBM value model (group k-fold) + SHAP

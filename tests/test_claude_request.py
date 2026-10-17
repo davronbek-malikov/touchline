@@ -45,7 +45,8 @@ def test_request_shape(warehouse):
     for banned in ("temperature", "top_p", "top_k", "thinking", "tool_choice"):
         assert banned not in body
     assert {t["name"] for t in body["tools"]} == {
-        "find_player", "search_players", "get_player_profile", "similar_players", "compare_players"}
+        "find_player", "search_players", "get_player_profile", "similar_players", "compare_players",
+        "search_notes", "propose_shortlist"}
     assert all(t["strict"] is True for t in body["tools"])
 
 

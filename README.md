@@ -53,10 +53,19 @@ cp .env.example .env    # add ANTHROPIC_API_KEY and LANGSMITH_API_KEY
 .venv/Scripts/python -m eval.run_experiment --label v1-baseline --langsmith       # full set as a LangSmith experiment
 ```
 
+**Milestone 5 (RAG + cited reports) is built.** Scout notes and Wikipedia "Style of play" passages are indexed in Qdrant (dense + BM25, fused with RRF). Asking for a report pauses the agent for shortlist approval; each approved player gets a report whose qualitative claims cite their source passage.
+
+```bash
+.venv/Scripts/python -m data.wikipedia_fetch            # ~1,400 player pages via Wikidata
+.venv/Scripts/python -m rag.index_notes                 # build the passage index
+.venv/Scripts/python -m rag.index_notes add 937958 "Great first touch, drifts inside early" --context "vs Real Madrid"
+.venv/Scripts/python -m agent.cli "Scouting reports on left-footed centre-backs under 23"
+```
+
 Linking accuracy: label `data/labels/link_sample.csv` (fill `is_correct`), then `python -m data.eval_links`.
 
 ## Data credits
 
 - **StatsBomb Open Data:** event data © StatsBomb, used under the [StatsBomb open data user agreement](https://github.com/statsbomb/open-data). StatsBomb logo to appear wherever their metrics are shown.
 - **Transfermarkt** via [transfermarkt-datasets](https://github.com/dcaribou/transfermarkt-datasets) (CC0). Data originates from Transfermarkt and is current to 6 July 2026. Non-commercial use.
-- **Wikipedia** text (milestone 5) under CC BY-SA 4.0.
+- **Wikipedia** "Style of play" text under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/); each passage keeps its article URL and revision id, and reports link back to them.

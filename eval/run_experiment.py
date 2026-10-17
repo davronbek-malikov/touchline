@@ -55,7 +55,22 @@ def summarise(scored: list[dict]) -> dict:
     return out
 
 
-def run_local(items: list[dict], label: str, concurrency: int, max_cost: float | None) -> dict:
+def judge_reports(item: dict, outputs: dict) -> dict:
+    """LLM-judge score (1-5) averaged over the item's reports; adds report_quality."""
+    from eval.judge import grade_report
+
+    evidence = {c["input"]["player_id"]: c["output"] for c in outputs["tool_calls"] if c["name"] == "report_evidence"}
+    grades = []
+    for r in outputs.get("reports", []):
+        ev = evidence.get(r["player_id"]) or {}
+        grades.append(grade_report(r["text"], ev.get("profile") or {}, ev.get("passages") or [], item["query"]))
+    if not grades:
+        return {}
+    return {"report_quality": round(sum(g.overall() for g in grades) / len(grades), 2),
+            "_grades": [g.model_dump() for g in grades]}
+
+
+def run_local(items: list[dict], label: str, concurrency: int, max_cost: float | None, judge: bool = False) -> dict:
     graph = build_graph(AnthropicClaude())
     meta = {"prompt_version": PROMPT_VERSION, "effort": EFFORT, "model": MODEL, "experiment": label}
     RESULTS.mkdir(exist_ok=True)
@@ -72,6 +87,11 @@ def run_local(items: list[dict], label: str, concurrency: int, max_cost: float |
             except Exception as e:  # keep going; a crashed item scores as an error row
                 outputs = {"final_text": "", "tool_calls": [], "usage": [], "latency_s": None, "error": repr(e)}
             result = score_all(it, outputs)
+            if judge and it["type"] == "report" and outputs.get("reports"):
+                graded = judge_reports(it, outputs)
+                if graded:
+                    result["scores"]["report_quality"] = graded["report_quality"]
+                    result["grades"] = graded["_grades"]
             spent += result["scores"].get("cost_usd", 0.0)
             row = {"id": it["id"], "type": it["type"], "query": it["query"], **result, "outputs": outputs}
             scored.append(row)
@@ -134,6 +154,7 @@ def main() -> None:
     ap.add_argument("--concurrency", type=int, default=4)
     ap.add_argument("--max-cost", type=float, help="stop a local run once spend passes this many dollars")
     ap.add_argument("--langsmith", action="store_true", help="run as a LangSmith experiment")
+    ap.add_argument("--judge", action="store_true", help="also grade reports with the LLM judge (extra cost)")
     args = ap.parse_args()
 
     items = load_items(args.ci, args.types, args.limit)
@@ -141,7 +162,7 @@ def main() -> None:
     if args.langsmith:
         run_langsmith(items, args.label, args.concurrency)
         return
-    summary = run_local(items, args.label, args.concurrency, args.max_cost)
+    summary = run_local(items, args.label, args.concurrency, args.max_cost, args.judge)
     print(json.dumps({k: v for k, v in summary.items() if k != "by_type"}, indent=2))
 
 

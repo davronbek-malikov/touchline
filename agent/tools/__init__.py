@@ -1,6 +1,7 @@
 """Tool registry: Claude-facing definitions and a single dispatcher.
 
-estimate_value (milestone 6) and search_notes (milestone 5) register here when built.
+estimate_value registers here in milestone 6. propose_shortlist is defined here for
+Claude but executed by the graph (it pauses for the scout's approval).
 """
 import json
 from dataclasses import dataclass
@@ -8,9 +9,10 @@ from typing import Callable
 
 from pydantic import BaseModel, ValidationError
 
-from agent.schemas import (ComparePlayersInput, FindPlayerInput, PlayerIdInput, SearchPlayersInput,
-                           SimilarPlayersInput, strict_schema)
+from agent.schemas import (ComparePlayersInput, FindPlayerInput, PlayerIdInput, ProposeShortlistInput,
+                           SearchNotesInput, SearchPlayersInput, SimilarPlayersInput, strict_schema)
 from agent.tools.db import ToolError
+from agent.tools.notes import search_notes
 from agent.tools.players import compare_players, find_player, get_player_profile, search_players
 from agent.tools.similar import similar_players
 
@@ -52,9 +54,25 @@ REGISTRY: dict[str, Tool] = {t.name: t for t in [
     Tool("compare_players",
          "Side-by-side comparison of 2-4 players: market fields plus event metrics and percentiles.",
          ComparePlayersInput, compare_players),
+    Tool("search_notes",
+         "Search qualitative evidence: the scouts' own match notes and Wikipedia 'Style of play' text "
+         "(CC BY-SA). Use for how a player plays, strengths and weaknesses, and anything the numbers "
+         "don't show. Pass player_id to search one player's passages. Returns passages with source ids.",
+         SearchNotesInput, search_notes),
 ]}
 
-TOOLS: list[dict] = [t.definition() for t in REGISTRY.values()]
+SHORTLIST_TOOL = "propose_shortlist"
+SHORTLIST_DEFINITION = {
+    "name": SHORTLIST_TOOL,
+    "description": "Propose a ranked shortlist (1-8 players) for the scout to approve before full scouting "
+                   "reports are written. Use it when the scout asks for reports, a dossier, or a shortlist "
+                   "with reports; for a single named player, propose just that player. The scout approves "
+                   "or removes names, and a cited report is then written for each approved player.",
+    "input_schema": strict_schema(ProposeShortlistInput),
+    "strict": True,
+}
+
+TOOLS: list[dict] = [t.definition() for t in REGISTRY.values()] + [SHORTLIST_DEFINITION]
 
 
 def run_tool(name: str, tool_input: dict) -> tuple[str, bool]:

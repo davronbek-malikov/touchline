@@ -9,3 +9,4 @@ warehouse/*.duckdb.wal
 node_modules/
 .next/
 *.egg-info/
+state/

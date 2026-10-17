@@ -103,3 +103,32 @@ def warehouse(tmp_path_factory):
     set_warehouse(path)
     yield path
     set_warehouse(None)
+
+
+PASSAGES = {
+    3: ["Pablo Builder is a calm ball-playing defender who breaks lines with progressive passes and stays "
+        "composed under pressure.", "He can be caught out by quick forwards in open space."],
+    4: ["Rugged Stopper is dominant in the air and wins most of his duels, but he is slow on the turn and "
+        "rarely plays forward passes."],
+}
+
+
+@pytest.fixture(scope="session")
+def passage_index(warehouse, tmp_path_factory):
+    """In-memory Qdrant index with a few Wikipedia-style passages, plus a temp notes DB."""
+    from qdrant_client import QdrantClient
+
+    from rag.index import PassageIndex, set_index
+    from rag.notes import set_db
+
+    index = PassageIndex(QdrantClient(":memory:"))
+    chunks = [{"chunk_id": f"wiki:{pid}:1:{i}", "player_id": pid, "source": "wikipedia",
+               "source_id": f"wiki:{pid}:{i}", "title": f"Wikipedia: player {pid} (Style of play)",
+               "url": f"https://en.wikipedia.org/wiki/P{pid}", "licence": "CC BY-SA 4.0", "text": t}
+              for pid, texts in PASSAGES.items() for i, t in enumerate(texts)]
+    index.upsert(chunks)
+    set_index(index)
+    set_db(tmp_path_factory.mktemp("notes") / "notes.sqlite")
+    yield index
+    set_index(None)
+    set_db(None)

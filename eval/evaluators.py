@@ -279,9 +279,40 @@ def cost_usd(outputs: dict) -> float:
     return round(total, 5)
 
 
+_SENTENCE = re.compile(r"(?<=[.!?])\s+")
+
+
+def citation_coverage(outputs: dict) -> dict | None:
+    """Share of qualitative report sentences that sit in a cited text span.
+
+    Qualitative = a sentence of 6+ words with no digits (numbers come from profile
+    data, which isn't cited). Headings and bullet labels are skipped.
+    """
+    total = cited = 0
+    for report in outputs.get("reports", []):
+        for block in report["blocks"]:
+            for sent in _SENTENCE.split(block["text"]):
+                s = sent.strip().strip("*#-• ").strip()
+                if len(s.split()) < 6 or re.search(r"\d", s) or s.endswith(":"):
+                    continue
+                total += 1
+                cited += bool(block["citations"])
+    if not total:
+        return None
+    return {"score": round(cited / total, 3), "comment": f"{cited}/{total} qualitative sentences cited"}
+
+
+def _with_report_text(outputs: dict) -> dict:
+    reports = outputs.get("reports") or []
+    if not reports:
+        return outputs
+    return outputs | {"final_text": "\n\n".join([outputs.get("final_text", "")] + [r["text"] for r in reports])}
+
+
 def score_all(item: dict, outputs: dict) -> dict:
     """Every applicable metric for one golden item -> {metric: value}, plus comments."""
     ref, scores, comments = item["reference"], {}, {}
+    full = _with_report_text(outputs)  # grounding and name checks also cover report text
 
     def put(name, result, key="score"):
         if result is None:
@@ -302,8 +333,12 @@ def score_all(item: dict, outputs: dict) -> dict:
         put("fact_correct", fact_correct(outputs, ref))
     if item["type"] == "trap":
         put("trap_handled", trap_handled(outputs, ref))
-    put("numeric_grounding", numeric_grounding(outputs, item["query"]))
-    names = player_names(outputs)
+    if item["type"] == "report":
+        scores["report_written"] = float(any(r.get("player_id") == ref.get("player_id")
+                                             for r in outputs.get("reports", [])))
+        put("citation_coverage", citation_coverage(outputs))
+    put("numeric_grounding", numeric_grounding(full, item["query"]))
+    names = player_names(full)
     scores["hallucinated_players"] = names["hallucinated_players"]
     scores["ungrounded_players"] = names["ungrounded_players"]
     comments["player_names"] = names["comment"]

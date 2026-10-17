@@ -155,4 +155,5 @@ def test_unknown_tool():
 
 
 def test_registry_names_match_definitions():
-    assert [t["name"] for t in TOOLS] == list(REGISTRY)
+    # propose_shortlist is executed by the graph, not the registry.
+    assert [t["name"] for t in TOOLS] == list(REGISTRY) + ["propose_shortlist"]

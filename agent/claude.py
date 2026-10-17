@@ -20,7 +20,7 @@ MODEL = os.environ.get("TOUCHLINE_MODEL", "claude-opus-5-5")
 EFFORT = os.environ.get("TOUCHLINE_EFFORT", "medium")
 MAX_TOKENS = 16000
 MAX_TOOL_ROUNDS = 8
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"  # v2: notes search + shortlist approval
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 PROMPTS = Path(__file__).parent / "prompts"
