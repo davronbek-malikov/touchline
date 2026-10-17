@@ -65,6 +65,18 @@ class Limits:
                     "ip_daily_budget_usd": self.ip_daily_usd, "per_minute": self.per_minute}
 
 
-def client_ip(headers, fallback: str | None) -> str:
+def client_ip(headers, peer: str | None, trusted_hops: int | None = None) -> str:
+    """The caller's IP for rate limiting.
+
+    X-Forwarded-For is client-controlled except for the entries our own proxies
+    append on the right. With TRUSTED_PROXY_HOPS=n (1 behind Railway's edge), the
+    n-th entry from the right is used; with 0 (the default) the header is ignored
+    and the direct peer address is used.
+    """
+    hops = trusted_hops if trusted_hops is not None else int(_env_float("TRUSTED_PROXY_HOPS", 0))
     fwd = headers.get("x-forwarded-for")
-    return fwd.split(",")[0].strip() if fwd else (fallback or "unknown")
+    if hops > 0 and fwd:
+        entries = [h.strip() for h in fwd.split(",") if h.strip()]
+        if len(entries) >= hops:
+            return entries[-hops]
+    return peer or "unknown"
