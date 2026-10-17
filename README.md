@@ -39,6 +39,13 @@ py -3.12 -m venv .venv
 .venv/Scripts/python -m agent.tools search_players '{"position_groups": ["CB"], "foot": "left", "age_max": 22, "value_max_eur": 10000000}'
 ```
 
+**Milestone 3 (agent) is built.** A LangGraph loop around Claude with the tools above:
+
+```bash
+cp .env.example .env    # add ANTHROPIC_API_KEY and LANGSMITH_API_KEY
+.venv/Scripts/python -m agent.cli "left-footed centre-back under 23, under €10M, good in build-up"
+```
+
 Linking accuracy: label `data/labels/link_sample.csv` (fill `is_correct`), then `python -m data.eval_links`.
 
 ## Data credits

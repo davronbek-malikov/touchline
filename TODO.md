@@ -27,11 +27,12 @@ Full plan: [docs/PLAN.md](docs/PLAN.md)
 - [ ] `estimate_value` → registers in M6 · `search_notes` → registers in M5
 
 ## M3 · Agent
-- [ ] `agent/claude.py` (caching, stop_reason handling, refusals)
-- [ ] `agent/prompts/system.md` (role glossary, metric dictionary, rules)
-- [ ] `agent/graph.py` LangGraph loop, 8-round cap
-- [ ] Terminal CLI; LangSmith tracing
-- [ ] Graph tests with a fake Claude client
+- [x] `agent/claude.py`: claude-opus-5-5, effort medium, `fallbacks: "default"`, system + conversation caching, traced to LangSmith with token usage
+- [x] `agent/prompts/system.md` (grounding rules, data coverage, role glossary, metric dictionary, answer format)
+- [x] `agent/graph.py` LangGraph loop: parallel tools, one tool_result message per turn, 8-round cap, append-only history
+- [x] Terminal CLI `python -m agent.cli` with live step output and cache stats
+- [x] Graph tests with a fake Claude + request-shape tests on a mocked HTTP transport (40 passing)
+- [ ] **You:** add `ANTHROPIC_API_KEY` to `.env`, then first live run; check traces in LangSmith `touchline-dev` and `cache_read_input_tokens > 0` from the 2nd call
 
 ## M4 · Golden set + eval v1
 - [ ] `eval/golden.jsonl` (120 queries)
