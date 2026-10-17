@@ -20,6 +20,7 @@ from data.config import ROOT
 NAME_MIN = 87      # best name score must reach this
 MARGIN = 2         # and beat the runner-up by this much
 TEAM_MIN = 80      # partial-ratio for a club-name agreement
+FULL_NAME_PENALTY = 10  # legal full names ("Daniel Olmo Carvajal") contain other players' surnames
 
 # StatsBomb country name -> Transfermarkt nationality.
 COUNTRY_ALIASES = {
@@ -67,11 +68,14 @@ def name_score(sb_names: list[str], tm_name: str) -> float:
     but it also scores 100 when the only overlap is one token ("Alisson" vs
     "Alisson Santos"), so single-token overlaps fall back to token_sort_ratio.
     Exact matches get a bonus, and a small token_sort term breaks near-ties.
+    sb_names[0] is the name football knows (nickname when there is one); later
+    forms are legal full names and score FULL_NAME_PENALTY lower, so "Daniel Olmo
+    Carvajal" (nickname "Daniel Olmo") matches Dani Olmo, not Daniel Carvajal.
     """
     tm = norm(tm_name)
     tm_tokens = tm.split()
     best = 0.0
-    for n in sb_names:
+    for rank, n in enumerate(sb_names):
         n = norm(n)
         if not n:
             continue
@@ -86,7 +90,7 @@ def name_score(sb_names: list[str], tm_name: str) -> float:
             s = max(s, 92)
         s = max(s, fuzz.ratio(n, tm))
         s += 4 * (n == tm) + 1.5 * fuzz.token_sort_ratio(n, tm) / 100
-        best = max(best, s)
+        best = max(best, s - (FULL_NAME_PENALTY if rank > 0 else 0))
     return best
 
 
@@ -148,7 +152,16 @@ def link(sb: pd.DataFrame, tm: pd.DataFrame, tm_clubs: dict[int, set[str]]) -> p
             if ok:
                 row.update(tm_player_id=int(tm.at[i, "player_id"]), method=method + suffix)
         out.append(row)
-    return pd.DataFrame(out)
+    return _one_to_one(pd.DataFrame(out))
+
+
+def _one_to_one(links: pd.DataFrame) -> pd.DataFrame:
+    """A Transfermarkt player can be one StatsBomb player only: keep the strongest name match."""
+    linked = links[links["tm_player_id"].notna()]
+    best = linked.sort_values("name_score", ascending=False).drop_duplicates("tm_player_id")
+    losers = linked.index.difference(best.index)
+    links.loc[losers, ["tm_player_id", "method"]] = [None, "conflict"]
+    return links
 
 
 def build_links(con: duckdb.DuckDBPyConnection, sample_size: int = 150) -> pd.DataFrame:

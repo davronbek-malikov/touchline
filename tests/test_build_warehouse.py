@@ -12,6 +12,10 @@ def _fake_tm(path):
     con.execute("""CREATE TABLE players AS SELECT * FROM (VALUES
         (1, 'Left Back Kid', TIMESTAMP '2004-03-01', 'Defender', 'Left-Back', 'left', 178, 'England', 'England',
          '5', 'Some FC', 'GB1', TIMESTAMP '2027-06-30', 8000000, 9000000, 2, 0, '2025', 'img', 'url'),
+        (3, 'Birthday Next Week', TIMESTAMP '2007-07-13', 'Attack', 'Right Winger', 'left', 180, 'Spain', 'Spain',
+         '5', 'Some FC', 'GB1', NULL, 1, 1, NULL, NULL, '2025', 'img', 'url'),
+        (4, 'Late In Year', TIMESTAMP '1985-09-09', 'Midfield', 'Central Midfield', 'right', 172, 'Croatia', 'Croatia',
+         '5', 'Some FC', 'GB1', NULL, 1, 1, NULL, NULL, '2025', 'img', 'url'),
         (2, 'Old Striker', TIMESTAMP '1990-01-01', 'Attack', 'Centre-Forward', '', 185, 'Spain', 'Spain',
          '6', 'Other FC', 'GB1', NULL, 500000, 40000000, NULL, NULL, '2022', 'img', 'url'))
         t(player_id, name, date_of_birth, position, sub_position, foot, height_in_cm, country_of_citizenship,
@@ -39,6 +43,10 @@ def test_market_layer(tmp_path):
     assert p == (22, "FB", "left", True, "England")
     q = con.execute("SELECT position_group, foot, is_active FROM players WHERE player_id = 2").fetchone()
     assert q == ("ST", None, False)
+
+    # Ages are whole years on the data date (2026-07-06), not rounded.
+    ages = dict(con.execute("SELECT player_id, age FROM players WHERE player_id IN (3, 4)").fetchall())
+    assert ages == {3: 18, 4: 40}
 
     seasons = con.execute(
         "SELECT season, competition_id, minutes, goals FROM player_seasons WHERE player_id = 1 ORDER BY season, competition_id"

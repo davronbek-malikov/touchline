@@ -55,6 +55,36 @@ def test_link_breaks_namesake_ties_with_caps_and_matches_nickname():
     assert out.loc[3, "method"] == "unmatched"
 
 
+def test_nickname_beats_surname_hidden_in_full_name():
+    tm = pd.DataFrame([
+        {"player_id": 40, "name": "Dani Olmo", "nationality": "Spain", "international_caps": 50,
+         "highest_market_value_eur": 60_000_000},
+        {"player_id": 41, "name": "Daniel Carvajal", "nationality": "Spain", "international_caps": 50,
+         "highest_market_value_eur": 60_000_000},
+    ])
+    sb = _sb([
+        {"sb_player_id": 5, "player_name": "Daniel Olmo Carvajal", "player_nickname": "Daniel Olmo",
+         "country": "Spain", "teams": ["Spain"]},
+        {"sb_player_id": 6, "player_name": "Daniel Carvajal Ramos", "player_nickname": "Dani Carvajal",
+         "country": "Spain", "teams": ["Spain"]},
+    ])
+    out = link(sb, tm, {}).set_index("sb_player_id")
+    assert out.loc[5, "tm_player_id"] == 40
+    assert out.loc[6, "tm_player_id"] == 41
+
+
+def test_one_tm_player_is_never_claimed_twice():
+    tm = _tm()
+    sb = _sb([
+        {"sb_player_id": 7, "player_name": "Rodrigo Hernández Cascante", "player_nickname": "Rodri",
+         "country": "Spain", "teams": ["Spain"]},
+        {"sb_player_id": 8, "player_name": "Rodri", "player_nickname": None, "country": "Spain", "teams": ["Spain"]},
+    ])
+    out = link(sb, tm, {})
+    assert out["tm_player_id"].dropna().tolist() == [20]
+    assert out.set_index("sb_player_id").loc[8, "method"] == "conflict"
+
+
 def test_link_without_country_needs_club_agreement():
     sb = _sb([{"sb_player_id": 4, "player_name": "Jan Novak", "player_nickname": None,
                "country": "Atlantis", "teams": ["FC Slovan"]}])

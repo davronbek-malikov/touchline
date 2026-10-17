@@ -54,7 +54,10 @@ def build_market_layer(con: duckdb.DuckDBPyConnection, tm_path: Path) -> None:
             p.player_id,
             p.name,
             CAST(p.date_of_birth AS DATE) AS date_of_birth,
-            CAST(date_diff('day', CAST(p.date_of_birth AS DATE), DATE '{DATA_AS_OF}') / 365.25 AS INTEGER) AS age,
+            -- whole years: subtract one if the birthday hasn't happened yet that year
+            year(DATE '{DATA_AS_OF}') - year(p.date_of_birth)
+              - CASE WHEN strftime(DATE '{DATA_AS_OF}', '%m%d') < strftime(p.date_of_birth, '%m%d') THEN 1 ELSE 0 END
+              AS age,
             p.position,
             p.sub_position,
             pg.position_group,
