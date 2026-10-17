@@ -14,11 +14,9 @@ from functools import lru_cache
 
 from rapidfuzz import fuzz, process
 
+from agent.cost import usage_cost
 from agent.tools.db import rows
 from data.link_players import norm
-
-# Claude Opus 5.5 list prices, $ per million tokens (5-minute cache writes are 1.25x input).
-PRICE = {"input": 4.00, "output": 20.00, "cache_read": 0.20, "cache_write": 5.00}
 
 NO_DATA = re.compile(
     r"\b(no data|don'?t have|do not have|doesn'?t (?:have|include|cover)|does not (?:have|include|cover)|"
@@ -271,12 +269,7 @@ def fact_correct(outputs: dict, reference: dict) -> dict | None:
 
 
 def cost_usd(outputs: dict) -> float:
-    total = 0.0
-    for u in outputs.get("usage", []):
-        total += (u["input_tokens"] * PRICE["input"] + u["output_tokens"] * PRICE["output"]
-                  + u["cache_read_input_tokens"] * PRICE["cache_read"]
-                  + u["cache_creation_input_tokens"] * PRICE["cache_write"]) / 1e6
-    return round(total, 5)
+    return usage_cost(outputs.get("usage", []))
 
 
 _SENTENCE = re.compile(r"(?<=[.!?])\s+")

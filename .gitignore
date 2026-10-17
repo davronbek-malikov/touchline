@@ -10,3 +10,4 @@ node_modules/
 .next/
 *.egg-info/
 state/
+*.tsbuildinfo
