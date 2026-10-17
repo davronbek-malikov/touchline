@@ -46,6 +46,13 @@ cp .env.example .env    # add ANTHROPIC_API_KEY and LANGSMITH_API_KEY
 .venv/Scripts/python -m agent.cli "left-footed centre-back under 23, under €10M, good in build-up"
 ```
 
+**Milestone 4 (evaluation) is built.** 120 golden queries with gold answers computed from the warehouse, deterministic evaluators, and a LangSmith dataset:
+
+```bash
+.venv/Scripts/python -m eval.run_experiment --ci --max-cost 3 --label smoke       # 30 queries, local
+.venv/Scripts/python -m eval.run_experiment --label v1-baseline --langsmith       # full set as a LangSmith experiment
+```
+
 Linking accuracy: label `data/labels/link_sample.csv` (fill `is_correct`), then `python -m data.eval_links`.
 
 ## Data credits

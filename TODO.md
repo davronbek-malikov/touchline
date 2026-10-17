@@ -35,9 +35,15 @@ Full plan: [docs/PLAN.md](docs/PLAN.md)
 - [ ] **You:** add `ANTHROPIC_API_KEY` to `.env`, then first live run; check traces in LangSmith `touchline-dev` and `cache_read_input_tokens > 0` from the 2nd call
 
 ## M4 · Golden set + eval v1
-- [ ] `eval/golden.jsonl` (120 queries)
-- [ ] Deterministic evaluators (filter acc., P@10/R@10, numeric grounding, hallucinated players, traps)
-- [ ] LangSmith dataset + baseline experiment
+- [x] `eval/golden_spec.py` (120 hand-written queries: 50 filter, 20 similar, 25 fact, 15 report, 10 trap; 30 tagged CI)
+- [x] `eval/build_golden.py` computes every gold answer from the warehouse → `eval/golden.jsonl`
+- [x] Evaluators: filter accuracy, P@10/R@10, numeric grounding, hallucinated + ungrounded players, fact correct, trap handled, tool error rate, cost, latency
+- [x] Evaluator sanity check: 0/70 false alarms on perfect answers; corrupted answer caught
+- [x] Runner `eval/run_experiment.py` (local results or LangSmith experiment, `--ci`, `--max-cost`)
+- [x] LangSmith dataset `touchline-golden` uploaded (120 examples)
+- [x] Fixed on the way: ages were rounded (Yamal 19 → 18); Dani Olmo was linked to Daniel Carvajal
+- [ ] **You:** review the 120 queries and gold answers in `eval/golden_spec.py` / `eval/golden.jsonl`
+- [ ] Baseline experiment `v1-baseline` (needs `ANTHROPIC_API_KEY`), fill the results table
 
 ## M5 · RAG + reports
 - [ ] Wikipedia "Playing style" fetch
