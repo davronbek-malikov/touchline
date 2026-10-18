@@ -3,65 +3,53 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { api, Candidate, recentThreads, Report, shortDate } from "@/lib/api";
+import { api, Candidate, ChatSummary, shortDate } from "@/lib/api";
 
-interface Row {
-  id: string;
-  title: string;
-  at: string;
-  pending: Candidate[] | null;
-  reports: Report[];
-}
+type Waiting = ChatSummary & { candidates: Candidate[] };
+type Written = ChatSummary & { reports: { player_id: number; name: string }[] };
 
-/** Searches started in this browser: shortlists waiting for approval and reports already written. */
+/** Your chats with a shortlist waiting for approval, and the players you've had reports written on. */
 export default function ShortlistPage() {
-  const [rows, setRows] = useState<Row[] | null>(null);
+  const [data, setData] = useState<{ waiting: Waiting[]; written: Written[] } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const threads = recentThreads();
-    Promise.all(threads.map((t) => api.thread(t.id)
-      .then((r) => ({ ...t, pending: r.pending?.candidates ?? null, reports: r.reports }))
-      .catch(() => ({ ...t, pending: null, reports: [] }))))
-      .then(setRows);
-  }, []);
-
-  const waiting = rows?.filter((r) => r.pending) ?? [];
-  const done = rows?.filter((r) => !r.pending && r.reports.length) ?? [];
+  useEffect(() => { api.shortlists().then(setData).catch((e) => setError(e.message)); }, []);
 
   return (
     <div className="page">
       <h1>Shortlists</h1>
-      <p className="lede">Shortlists the agent proposed in this browser, and the players you approved for reports.</p>
-      {rows === null && <p className="hint">Loading…</p>}
-      {rows?.length === 0 && (
+      <p className="lede">Shortlists the assistant proposed in your chats, and the players you approved for reports.</p>
+      {error && <p className="error" style={{ marginTop: 20 }}>{error}</p>}
+      {!data && !error && <p className="hint">Loading…</p>}
+      {data && !data.waiting.length && !data.written.length && (
         <p className="hint" style={{ marginTop: 20 }}>
-          Nothing here yet. Ask for scouting reports on the <Link href="/">search page</Link> and the agent will propose a shortlist for you to approve.
+          Nothing here yet. Ask the <Link href="/">Scout Assistant</Link> for scouting reports and it will propose a shortlist for you to approve.
         </p>
       )}
-      {waiting.length > 0 && (
+      {data && data.waiting.length > 0 && (
         <section style={{ marginTop: 28 }}>
           <h2>Waiting for your approval</h2>
           <ul className="note-list">
-            {waiting.map((r) => (
-              <li key={r.id}>
-                <Link href={`/?thread=${r.id}`}><strong>{r.title}</strong></Link>
-                <span className="hint"> started {shortDate(r.at)}</span>
-                <p>{r.pending!.map((c) => c.name).join(", ")}</p>
+            {data.waiting.map((c) => (
+              <li key={c.chat_id}>
+                <Link href={`/?chat=${c.chat_id}`}><strong>{c.title}</strong></Link>
+                <span className="hint"> {shortDate(c.updated_at)}</span>
+                <p>{c.candidates.map((x) => x.name).join(", ")}</p>
               </li>
             ))}
           </ul>
         </section>
       )}
-      {done.length > 0 && (
+      {data && data.written.length > 0 && (
         <section style={{ marginTop: 28 }}>
           <h2>Reports written</h2>
           <ul className="note-list">
-            {done.map((r) => (
-              <li key={r.id}>
-                <Link href={`/?thread=${r.id}`}><strong>{r.title}</strong></Link>
-                <span className="hint"> {shortDate(r.at)}</span>
-                <p>{r.reports.map((rep) => (
-                  <Link key={rep.player_id} href={`/players/${rep.player_id}`} style={{ marginRight: 12 }}>{rep.name}</Link>
+            {data.written.map((c) => (
+              <li key={c.chat_id}>
+                <Link href={`/?chat=${c.chat_id}`}><strong>{c.title}</strong></Link>
+                <span className="hint"> {shortDate(c.updated_at)}</span>
+                <p>{c.reports.map((r) => (
+                  <Link key={r.player_id} href={`/players/${r.player_id}`} style={{ marginRight: 12 }}>{r.name}</Link>
                 ))}</p>
               </li>
             ))}

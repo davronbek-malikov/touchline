@@ -29,6 +29,26 @@ function CitedSpan({ text, citations, refNo }: { text: string; citations: Citati
   );
 }
 
+/** The report as plain text with [n] markers and a source list, for copying. */
+export function reportPlainText(report: Report): string {
+  const refs = new Map<string, number>();
+  let body = "";
+  for (const b of report.blocks) {
+    body += b.text;
+    const nums = [...new Set(b.citations.map((c) => {
+      const key = c.source_id || c.title;
+      if (!refs.has(key)) refs.set(key, refs.size + 1);
+      return refs.get(key)!;
+    }))];
+    if (nums.length) body += nums.map((n) => `[${n}]`).join("");
+  }
+  const sources = [...refs.entries()].map(([key, n]) => {
+    const c = report.blocks.flatMap((b) => b.citations).find((x) => (x.source_id || x.title) === key)!;
+    return `[${n}] ${c.title}${c.url ? ` ${c.url}` : ""}`;
+  });
+  return `Scouting report: ${report.name}\n\n${body.trim()}${sources.length ? `\n\nSources:\n${sources.join("\n")}` : ""}`;
+}
+
 /** Renders report blocks with lightweight markdown (bold, headings) and citation hover cards. */
 export default function ReportView({ report }: { report: Report }) {
   if (report.error) {

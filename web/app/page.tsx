@@ -1,11 +1,11 @@
 import { Suspense } from "react";
 
-import SearchChat from "@/components/SearchChat";
+import ChatView from "@/components/ChatView";
 
-export default function SearchPage() {
+export default function AssistantPage() {
   return (
     <Suspense>
-      <SearchChat />
+      <ChatView />
     </Suspense>
   );
 }
