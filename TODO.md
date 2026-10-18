@@ -69,6 +69,15 @@ Full plan: [docs/PLAN.md](docs/PLAN.md)
 - [x] Next.js app: Search (live agent log, results table, shortlist approval, cited reports, 👍/👎), Player dossier, Compare (radar), Shortlists, Notes, About the data
 - [x] Checked with screenshots at desktop and phone widths against a scripted backend
 
+## M7b · Scout Assistant (ChatGPT-style), requested 2026-10-18
+- [x] Sidebar: new chat, folders (create / rename / delete), chats (rename / move / delete), scoped per browser
+- [x] Conversation: copy question and answer, edit-and-resend and regenerate (fork from unchanged history), read aloud, 👍/👎
+- [x] Attachments: images, PDF, Word, Excel, CSV/text; video sent as frames extracted in the browser; drag-and-drop and paste
+- [x] Voice dictation (Web Speech API: Chrome, Edge, Safari; not Firefox)
+- [x] Model picker: Claude Opus / Sonnet / Haiku 5.5, plus local Ollama models when the server can reach Ollama
+- [ ] Try a local model end to end once Ollama is installed (only tested against a mocked Ollama API)
+- [ ] Real accounts instead of per-browser ids, if the demo needs shared or cross-device chats
+
 ## M8 · Deploy + hardening
 - [x] Frontend live on Vercel: https://touchline-pi-lime.vercel.app (project `touchline`)
 - [x] Backend image ready: `Dockerfile`, `railway.json`, `.railwayignore`, `deploy/start.sh`
