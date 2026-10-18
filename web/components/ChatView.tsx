@@ -23,6 +23,11 @@ interface UITurn extends TurnData {
 
 const MODEL_KEY = "touchline.model";
 
+// Shown when the server can't be reached, so the picker isn't empty.
+const OFFLINE_MODELS: ModelOption[] = [
+  ["claude-opus-5-5", "Claude Opus 5.5"], ["claude-sonnet-5-5", "Claude Sonnet 5.5"], ["claude-haiku-5-5", "Claude Haiku 5.5"],
+].map(([id, label]) => ({ id, label, provider: "anthropic", available: false, note: "", reason: "Server unavailable" }));
+
 function plain(md: string): string {
   return md.replace(/```[\s\S]*?```/g, "").replace(/[#*_`>|]/g, "").replace(/\[(.*?)\]\(.*?\)/g, "$1")
     .replace(/-{3,}/g, "").replace(/\n{2,}/g, "\n");
@@ -83,7 +88,7 @@ export default function ChatView() {
       const usable = r.models.filter((m) => m.available);
       const pick = [saved, r.default].find((id) => id && usable.some((m) => m.id === id)) ?? usable[0]?.id ?? r.default;
       setModel(pick);
-    }).catch(() => undefined);
+    }).catch(() => setModels(OFFLINE_MODELS));
   }, []);
 
   // Load a chat when the URL points at one we didn't just create here.
