@@ -81,7 +81,9 @@ Full plan: [docs/PLAN.md](docs/PLAN.md)
 ## M8 · Deploy + hardening
 - [x] Frontend live on Vercel: https://touchline-pi-lime.vercel.app (project `touchline`)
 - [x] Backend image ready: `Dockerfile`, `railway.json`, `.railwayignore`, `deploy/start.sh`
-- [ ] **You:** choose a Railway plan (trial expired), then: create project + `api` service, volume at `/data`, variables, deploy
+- [x] Free Render path: Postgres storage for chats / notes / uploads / threads, BM25-only in-memory index, data release, `Dockerfile.render`, `render.yaml` (tested in Docker at 512 MB with Postgres: ~230 MB peak, data survives restarts)
+- [ ] **You:** create a Neon Postgres database and a Render Blueprint from this repo; paste `DATABASE_URL`, `ANTHROPIC_API_KEY`, `LANGSMITH_API_KEY`
+- [ ] (Alternative, paid) Railway: Railway plan, then project + `api` service, volume at `/data`
 - [ ] Set `NEXT_PUBLIC_API_URL` on Vercel to the Railway URL and redeploy; set `ALLOWED_ORIGINS` on Railway to the Vercel URL
 - [ ] **You:** `ANTHROPIC_API_KEY` on Railway (and an Anthropic console monthly spend limit)
 - [ ] CI eval gate (GitHub Action) once the repo is on GitHub · README GIF

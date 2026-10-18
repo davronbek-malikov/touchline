@@ -9,6 +9,7 @@ import api.main as api
 from agent.graph import build_graph
 from api.chats import ChatStore
 from api.files import FileStore
+from storage import SqliteSql
 from api.limits import Limits
 from tests.test_shortlist import FakeClaude, FakeWriter, propose
 
@@ -43,7 +44,7 @@ class Recorder(FakeClaude):
 @pytest.fixture
 def client(warehouse, passage_index, monkeypatch, tmp_path):
     monkeypatch.setattr(api, "limits", Limits(per_minute=100, ip_daily_usd=10, daily_usd=10))
-    api.set_stores(ChatStore(tmp_path / "chats.sqlite"), FileStore(tmp_path / "uploads"))
+    api.set_stores(ChatStore(SqliteSql(tmp_path / "chats.sqlite")), FileStore(tmp_path / "uploads"))
     yield TestClient(api.app)
     api.set_graph(None)
     api.set_stores(None, None)

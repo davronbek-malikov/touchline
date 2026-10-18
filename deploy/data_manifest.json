@@ -1,0 +1,14 @@
+{
+  "release": "data-2026-07-06",
+  "base_url": "https://github.com/davronbek-malikov/touchline/releases/download/data-2026-07-06",
+  "files": {
+    "touchline.duckdb": {
+      "sha256": "eaec1b80e5959b74f9c100df5fc9c374d4a4b52821f83128b891177437d141a3",
+      "bytes": 14692352
+    },
+    "passages.jsonl": {
+      "sha256": "308e0a86869a879ee39f4ae133d8ad2a4fe5f7c81514e0bdc85165caedb36d5f",
+      "bytes": 632210
+    }
+  }
+}

@@ -1,0 +1,33 @@
+# Touchline API for Render's free tier (512 MB RAM, no persistent disk).
+#   - state (chats, notes, uploads, agent threads) lives in Postgres via DATABASE_URL
+#   - passage search is BM25-only and the index is rebuilt in memory at startup
+#   - the warehouse and passages come from the GitHub data release, checksum-verified
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    FASTEMBED_CACHE_PATH=/app/models \
+    TOUCHLINE_SEARCH=bm25 \
+    TOUCHLINE_INDEX=memory \
+    TOUCHLINE_PASSAGES=/app/deploy/seed/passages.jsonl \
+    TOUCHLINE_STATE=/tmp/touchline \
+    TRUSTED_PROXY_HOPS=1
+
+WORKDIR /app
+
+COPY deploy/requirements-api.txt deploy/requirements-api.txt
+RUN pip install --no-cache-dir -r deploy/requirements-api.txt
+
+COPY agent agent
+COPY api api
+COPY data data
+COPY eval eval
+COPY rag rag
+COPY storage storage
+COPY deploy/fetch_data.py deploy/data_manifest.json deploy/
+
+RUN python deploy/fetch_data.py
+# Only the small BM25 model; the dense model is never loaded in this image.
+RUN python -c "from rag.index import _sparse_model; _sparse_model()"
+
+CMD ["sh", "-c", "exec uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-10000} --workers 1"]

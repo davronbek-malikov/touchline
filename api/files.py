@@ -105,34 +105,41 @@ def classify(name: str, content_type: str | None, data: bytes) -> tuple[str, byt
 
 
 class FileStore:
+    """Uploads on local disk under <root>/<client>/<file_id>/ (development)."""
+
     def __init__(self, root: Path):
         self.root = root
 
-    def _dir(self, owner: str, file_id: str) -> Path:
-        return self.root / owner / file_id
+    def _put(self, owner: str, meta: dict, data: bytes) -> None:
+        d = self.root / owner / meta["file_id"]
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "data").write_bytes(data)
+        (d / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+
+    def _load(self, owner: str, file_id: str) -> tuple[dict, bytes] | None:
+        d = self.root / owner / file_id
+        if not (d / "meta.json").exists():
+            return None
+        return json.loads((d / "meta.json").read_text(encoding="utf-8")), (d / "data").read_bytes()
 
     def save(self, owner: str, name: str, content_type: str | None, data: bytes) -> dict:
         kind, stored, media = classify(name, content_type, data)
-        file_id = uuid.uuid4().hex
-        d = self._dir(owner, file_id)
-        d.mkdir(parents=True, exist_ok=True)
-        (d / "data").write_bytes(stored)
-        meta = {"file_id": file_id, "name": _safe_name(name), "kind": kind, "media_type": media,
+        meta = {"file_id": uuid.uuid4().hex, "name": _safe_name(name), "kind": kind, "media_type": media,
                 "size": len(stored), "note": None}
         if kind == "text" and len(stored.decode("utf-8", errors="replace")) > MAX_TEXT_CHARS:
             meta["note"] = f"Long file: only the first {MAX_TEXT_CHARS:,} characters will be read."
         if kind == "text" and not stored.strip():
             meta["note"] = "No text could be extracted from this file."
-        (d / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+        self._put(owner, meta, stored)
         return meta
 
     def get(self, owner: str, file_id: str) -> tuple[dict, bytes]:
         if not re.fullmatch(r"[0-9a-f]{32}", file_id):
             raise UploadError("unknown file")
-        d = self._dir(owner, file_id)
-        if not (d / "meta.json").exists():
+        found = self._load(owner, file_id)
+        if found is None:
             raise UploadError("unknown file")
-        return json.loads((d / "meta.json").read_text(encoding="utf-8")), (d / "data").read_bytes()
+        return found
 
     def blocks(self, owner: str, file_ids: list[str]) -> tuple[list[dict], list[str]]:
         """Content blocks for a message, plus readable labels for the attachment line."""
@@ -154,3 +161,22 @@ class FileStore:
                 blocks.append({"type": "document", "title": meta["name"],
                                "source": {"type": "text", "media_type": "text/plain", "data": text or "(empty)"}})
         return blocks, labels
+
+
+class SqlFileStore(FileStore):
+    """Uploads in the app database, for hosts without a persistent disk (Render's free tier)."""
+
+    def __init__(self, sql):
+        self.sql = sql
+        blob = "BYTEA" if sql.dialect == "postgres" else "BLOB"
+        sql.script(f"""CREATE TABLE IF NOT EXISTS uploads (
+            file_id TEXT PRIMARY KEY, owner TEXT NOT NULL, meta TEXT NOT NULL, data {blob} NOT NULL)""")
+
+    def _put(self, owner: str, meta: dict, data: bytes) -> None:
+        self.sql.x("INSERT INTO uploads VALUES (?, ?, ?, ?)", (meta["file_id"], owner, json.dumps(meta), data))
+
+    def _load(self, owner: str, file_id: str) -> tuple[dict, bytes] | None:
+        rows = self.sql.q("SELECT meta, data FROM uploads WHERE file_id = ? AND owner = ?", (file_id, owner))
+        if not rows:
+            return None
+        return json.loads(rows[0]["meta"]), bytes(rows[0]["data"])

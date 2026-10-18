@@ -38,6 +38,36 @@ def test_new_note_is_searchable_immediately(passage_index):
     assert hits[0]["source"] == "scout_note" and hits[0]["source_id"] == note["note_id"]
 
 
+def test_bm25_only_index_never_loads_dense_model(monkeypatch, tmp_path):
+    import json
+
+    import rag.index as ix
+    from qdrant_client import QdrantClient
+
+    monkeypatch.setattr(ix, "_dense_model", lambda: (_ for _ in ()).throw(AssertionError("dense model loaded")))
+    index = ix.PassageIndex(QdrantClient(":memory:"), dense=False)
+    index.upsert([{"chunk_id": "a", "player_id": 1, "source": "wikipedia", "source_id": "a", "title": "t",
+                   "text": "Dominant in the air and strong in duels."},
+                  {"chunk_id": "b", "player_id": 2, "source": "wikipedia", "source_id": "b", "title": "t",
+                   "text": "Quick feet and close control in tight spaces."}])
+    assert index.search("strong in the air")[0]["player_id"] == 1
+
+    # Memory mode: rebuilt at startup from a passages file (what the Render image ships).
+    seed = tmp_path / "passages.jsonl"
+    seed.write_text(json.dumps({"chunk_id": "c", "player_id": 9, "source": "wikipedia", "source_id": "c",
+                                "title": "t", "text": "A left-footed playmaker."}) + "\n", encoding="utf-8")
+    monkeypatch.setenv("TOUCHLINE_INDEX", "memory")
+    monkeypatch.setenv("TOUCHLINE_SEARCH", "bm25")
+    monkeypatch.setenv("TOUCHLINE_PASSAGES", str(seed))
+    monkeypatch.delenv("QDRANT_URL", raising=False)
+    monkeypatch.setattr("rag.notes.list_notes", lambda player_id=None: [])
+    ix._default.cache_clear()
+    try:
+        assert ix._default().search("playmaker")[0]["player_id"] == 9
+    finally:
+        ix._default.cache_clear()
+
+
 def test_search_notes_tool(passage_index):
     out, err = run_tool("search_notes", {"query": "composed under pressure", "player_id": 3})
     r = json.loads(out)

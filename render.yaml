@@ -1,0 +1,31 @@
+# Render Blueprint for the Touchline API (free tier).
+# Dashboard: New > Blueprint > this repository. Render asks for the values marked sync: false.
+services:
+  - type: web
+    name: touchline-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL          # Neon (or any Postgres) connection string
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: LANGSMITH_API_KEY
+        sync: false
+      - key: LANGSMITH_TRACING
+        value: "true"
+      - key: LANGSMITH_PROJECT
+        value: touchline-prod
+      - key: ALLOWED_ORIGINS
+        value: https://touchline-pi-lime.vercel.app
+      - key: ALLOWED_ORIGIN_REGEX  # Vercel preview deployments of the same project
+        value: https://touchline-[a-z0-9]+-davronbekmalikov96-7055s-projects\.vercel\.app
+      - key: DAILY_BUDGET_USD
+        value: "5"
+      - key: IP_DAILY_BUDGET_USD
+        value: "0.5"

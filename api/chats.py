@@ -6,77 +6,66 @@ prefix, and the chat moves to it; history before the edit is never rewritten.
 Reports are stored here per turn because graph state only keeps the latest turn's.
 """
 import json
-import sqlite3
-import threading
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
+
+from storage import Sql
+
+SCHEMA = """
+    CREATE TABLE IF NOT EXISTS folders (
+        folder_id TEXT PRIMARY KEY, owner TEXT NOT NULL, name TEXT NOT NULL, created_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS chats (
+        chat_id TEXT PRIMARY KEY, owner TEXT NOT NULL, title TEXT NOT NULL, folder_id TEXT,
+        thread_id TEXT NOT NULL, model TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS reports (
+        seq BIGINT, chat_id TEXT NOT NULL, thread_id TEXT NOT NULL, turn INTEGER NOT NULL,
+        player_id INTEGER NOT NULL, body TEXT NOT NULL, PRIMARY KEY (thread_id, turn, player_id));
+    CREATE INDEX IF NOT EXISTS chats_owner ON chats(owner, updated_at);
+"""
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(timezone.utc).isoformat(timespec="microseconds")
 
 
 class ChatStore:
-    def __init__(self, path: Path):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        self.con = sqlite3.connect(path, check_same_thread=False)
-        self.con.row_factory = sqlite3.Row
-        self.lock = threading.Lock()
-        with self.lock, self.con:
-            self.con.executescript("""
-                CREATE TABLE IF NOT EXISTS folders (
-                    folder_id TEXT PRIMARY KEY, owner TEXT NOT NULL, name TEXT NOT NULL, created_at TEXT NOT NULL);
-                CREATE TABLE IF NOT EXISTS chats (
-                    chat_id TEXT PRIMARY KEY, owner TEXT NOT NULL, title TEXT NOT NULL, folder_id TEXT,
-                    thread_id TEXT NOT NULL, model TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
-                CREATE TABLE IF NOT EXISTS reports (
-                    chat_id TEXT NOT NULL, thread_id TEXT NOT NULL, turn INTEGER NOT NULL, player_id INTEGER NOT NULL,
-                    body TEXT NOT NULL, PRIMARY KEY (thread_id, turn, player_id));
-                CREATE INDEX IF NOT EXISTS chats_owner ON chats(owner, updated_at);
-            """)
-
-    def _q(self, sql: str, args=()) -> list[dict]:
-        with self.lock:
-            return [dict(r) for r in self.con.execute(sql, args).fetchall()]
-
-    def _x(self, sql: str, args=()) -> int:
-        with self.lock, self.con:
-            return self.con.execute(sql, args).rowcount
+    def __init__(self, sql: Sql):
+        self.sql = sql
+        sql.script(SCHEMA)
 
     # --- folders -------------------------------------------------------------------------------
     def folders(self, owner: str) -> list[dict]:
-        return self._q("SELECT folder_id, name, created_at FROM folders WHERE owner = ? ORDER BY name", (owner,))
+        return self.sql.q("SELECT folder_id, name, created_at FROM folders WHERE owner = ? ORDER BY name", (owner,))
 
     def add_folder(self, owner: str, name: str) -> dict:
         f = {"folder_id": uuid.uuid4().hex[:12], "name": name.strip()[:80] or "Untitled folder", "created_at": _now()}
-        self._x("INSERT INTO folders VALUES (?, ?, ?, ?)", (f["folder_id"], owner, f["name"], f["created_at"]))
+        self.sql.x("INSERT INTO folders VALUES (?, ?, ?, ?)", (f["folder_id"], owner, f["name"], f["created_at"]))
         return f
 
     def rename_folder(self, owner: str, folder_id: str, name: str) -> bool:
-        return self._x("UPDATE folders SET name = ? WHERE folder_id = ? AND owner = ?",
-                       (name.strip()[:80] or "Untitled folder", folder_id, owner)) > 0
+        return self.sql.x("UPDATE folders SET name = ? WHERE folder_id = ? AND owner = ?",
+                          (name.strip()[:80] or "Untitled folder", folder_id, owner)) > 0
 
     def delete_folder(self, owner: str, folder_id: str) -> bool:
         """Chats in the folder are kept and moved back to the main list."""
-        self._x("UPDATE chats SET folder_id = NULL WHERE folder_id = ? AND owner = ?", (folder_id, owner))
-        return self._x("DELETE FROM folders WHERE folder_id = ? AND owner = ?", (folder_id, owner)) > 0
+        self.sql.x("UPDATE chats SET folder_id = NULL WHERE folder_id = ? AND owner = ?", (folder_id, owner))
+        return self.sql.x("DELETE FROM folders WHERE folder_id = ? AND owner = ?", (folder_id, owner)) > 0
 
     # --- chats -----------------------------------------------------------------------------------
     def chats(self, owner: str) -> list[dict]:
-        return self._q("""SELECT chat_id, title, folder_id, model, created_at, updated_at FROM chats
-                          WHERE owner = ? ORDER BY updated_at DESC LIMIT 500""", (owner,))
+        return self.sql.q("""SELECT chat_id, title, folder_id, model, created_at, updated_at FROM chats
+                             WHERE owner = ? ORDER BY updated_at DESC LIMIT 500""", (owner,))
 
     def get(self, owner: str, chat_id: str) -> dict | None:
-        rows = self._q("SELECT * FROM chats WHERE chat_id = ? AND owner = ?", (chat_id, owner))
+        rows = self.sql.q("SELECT * FROM chats WHERE chat_id = ? AND owner = ?", (chat_id, owner))
         return rows[0] if rows else None
 
     def create(self, owner: str, title: str, model: str | None, folder_id: str | None = None) -> dict:
         now = _now()
         c = {"chat_id": uuid.uuid4().hex[:12], "title": _title(title), "folder_id": folder_id,
              "thread_id": uuid.uuid4().hex, "model": model, "created_at": now, "updated_at": now}
-        self._x("INSERT INTO chats VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (c["chat_id"], owner, c["title"], folder_id, c["thread_id"], model, now, now))
+        self.sql.x("INSERT INTO chats VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                   (c["chat_id"], owner, c["title"], folder_id, c["thread_id"], model, now, now))
         return c
 
     def touch(self, owner: str, chat_id: str, model: str | None = None, thread_id: str | None = None) -> None:
@@ -87,12 +76,12 @@ class ChatStore:
         if thread_id is not None:
             sets.append("thread_id = ?")
             args.append(thread_id)
-        self._x(f"UPDATE chats SET {', '.join(sets)} WHERE chat_id = ? AND owner = ?", (*args, chat_id, owner))
+        self.sql.x(f"UPDATE chats SET {', '.join(sets)} WHERE chat_id = ? AND owner = ?", (*args, chat_id, owner))
 
     def update(self, owner: str, chat_id: str, title: str | None = None, folder_id: str | None = None,
                move: bool = False) -> bool:
-        if folder_id is not None and not self._q("SELECT 1 AS x FROM folders WHERE folder_id = ? AND owner = ?",
-                                                 (folder_id, owner)):
+        if folder_id is not None and not self.sql.q("SELECT 1 AS x FROM folders WHERE folder_id = ? AND owner = ?",
+                                                    (folder_id, owner)):
             return False
         sets, args = [], []
         if title is not None:
@@ -103,28 +92,43 @@ class ChatStore:
             args.append(folder_id)
         if not sets:
             return self.get(owner, chat_id) is not None
-        return self._x(f"UPDATE chats SET {', '.join(sets)} WHERE chat_id = ? AND owner = ?",
-                       (*args, chat_id, owner)) > 0
+        return self.sql.x(f"UPDATE chats SET {', '.join(sets)} WHERE chat_id = ? AND owner = ?",
+                          (*args, chat_id, owner)) > 0
 
     def delete(self, owner: str, chat_id: str) -> bool:
-        self._x("DELETE FROM reports WHERE chat_id = ?", (chat_id,))
-        return self._x("DELETE FROM chats WHERE chat_id = ? AND owner = ?", (chat_id, owner)) > 0
+        if self.get(owner, chat_id) is None:
+            return False
+        self.sql.x("DELETE FROM reports WHERE chat_id = ?", (chat_id,))
+        return self.sql.x("DELETE FROM chats WHERE chat_id = ? AND owner = ?", (chat_id, owner)) > 0
 
     # --- reports ---------------------------------------------------------------------------------
     def save_report(self, chat_id: str, thread_id: str, turn: int, report: dict) -> None:
-        self._x("INSERT OR REPLACE INTO reports VALUES (?, ?, ?, ?, ?)",
-                (chat_id, thread_id, turn, report["player_id"], json.dumps(report, ensure_ascii=False)))
+        self.sql.x("""INSERT INTO reports (seq, chat_id, thread_id, turn, player_id, body)
+                      VALUES (?, ?, ?, ?, ?, ?)
+                      ON CONFLICT (thread_id, turn, player_id) DO UPDATE SET body = excluded.body""",
+                   (_seq(), chat_id, thread_id, turn, report["player_id"], json.dumps(report, ensure_ascii=False)))
 
     def reports(self, thread_id: str) -> dict[int, list[dict]]:
         out: dict[int, list[dict]] = {}
-        for r in self._q("SELECT turn, body FROM reports WHERE thread_id = ? ORDER BY rowid", (thread_id,)):
+        for r in self.sql.q("SELECT turn, body FROM reports WHERE thread_id = ? ORDER BY turn, seq", (thread_id,)):
             out.setdefault(r["turn"], []).append(json.loads(r["body"]))
         return out
 
     def copy_reports(self, chat_id: str, old_thread: str, new_thread: str, before_turn: int) -> None:
         """Keep reports from the turns an edit didn't touch."""
-        self._x("""INSERT OR REPLACE INTO reports SELECT chat_id, ?, turn, player_id, body FROM reports
-                   WHERE thread_id = ? AND turn < ?""", (new_thread, old_thread, before_turn))
+        self.sql.x("""INSERT INTO reports (seq, chat_id, thread_id, turn, player_id, body)
+                      SELECT seq, chat_id, ?, turn, player_id, body FROM reports WHERE thread_id = ? AND turn < ?
+                      ON CONFLICT (thread_id, turn, player_id) DO NOTHING""", (new_thread, old_thread, before_turn))
+
+
+_counter = [0]
+
+
+def _seq() -> int:
+    """Insertion order for reports within a turn (microsecond clock, monotonic in-process)."""
+    now = int(datetime.now(timezone.utc).timestamp() * 1e6)
+    _counter[0] = max(_counter[0] + 1, now)
+    return _counter[0]
 
 
 def _title(text: str) -> str:

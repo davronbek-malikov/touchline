@@ -69,6 +69,16 @@ cp .env.example .env    # add ANTHROPIC_API_KEY and LANGSMITH_API_KEY
 cd web && npm install && npm run dev                          # web app on :3000
 ```
 
+### Deploy the backend on Render (free)
+
+`render.yaml` + `Dockerfile.render` run the API on Render's free tier (512 MB, no persistent disk): state lives in Postgres, passage search is BM25-only with the index rebuilt in memory at startup (about 230 MB at peak), and the warehouse comes from the [data release](https://github.com/davronbek-malikov/touchline/releases/tag/data-2026-07-06).
+
+1. Create a free Postgres database at [neon.tech](https://neon.tech) (region: Singapore) and copy its connection string.
+2. In Render: **New → Blueprint →** this repository. Fill in `DATABASE_URL`, `ANTHROPIC_API_KEY` and `LANGSMITH_API_KEY`.
+3. Point the web app at it: set `NEXT_PUBLIC_API_URL` on Vercel to the Render URL and redeploy.
+
+The free service sleeps after 15 idle minutes; the first request after that takes about a minute.
+
 Linking accuracy: label `data/labels/link_sample.csv` (fill `is_correct`), then `python -m data.eval_links`.
 
 ## Data credits

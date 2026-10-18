@@ -16,7 +16,7 @@ dependencies = [
 dev = ["pytest>=8"]
 
 [tool.setuptools.packages.find]
-include = ["data*", "ml*", "agent*", "rag*", "api*", "eval*"]
+include = ["data*", "ml*", "agent*", "rag*", "api*", "eval*", "storage*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

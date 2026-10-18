@@ -43,9 +43,10 @@ from agent.models import DEFAULT_MODEL, OLLAMA_PREFIX, is_known, list_models  # 
 from agent.tools import run_tool  # noqa: E402
 from agent.tools.db import data_as_of, rows  # noqa: E402
 from api.chats import ChatStore  # noqa: E402
-from api.files import FileStore, UploadError  # noqa: E402
+from api.files import FileStore, SqlFileStore, UploadError  # noqa: E402
 from api.limits import Limits, client_ip  # noqa: E402
 from data.config import ROOT  # noqa: E402
+from storage import database_url, open_sql  # noqa: E402
 
 log = logging.getLogger("touchline.api")
 STATE = Path(os.environ.get("TOUCHLINE_STATE", ROOT / "state"))
@@ -84,26 +85,42 @@ def set_stores(chats: ChatStore | None, files: FileStore | None) -> None:
     _store_override, _files_override = chats, files
 
 
-@lru_cache(maxsize=1)
-def _default_graph():
+def _checkpointer():
+    """Where agent threads (and paused shortlists) persist: Postgres if configured, else SQLite."""
+    url = database_url()
+    if url:
+        from langgraph.checkpoint.postgres import PostgresSaver
+        from psycopg.rows import dict_row
+        from psycopg_pool import ConnectionPool
+
+        pool = ConnectionPool(url, min_size=1, max_size=5, open=True,
+                              kwargs={"autocommit": True, "row_factory": dict_row, "prepare_threshold": None})
+        saver = PostgresSaver(pool)
+        saver.setup()
+        return saver
     from langgraph.checkpoint.sqlite import SqliteSaver
 
+    STATE.mkdir(parents=True, exist_ok=True)
+    return SqliteSaver(sqlite3.connect(STATE / "threads.sqlite", check_same_thread=False))
+
+
+@lru_cache(maxsize=1)
+def _default_graph():
     from agent.graph import build_graph
     from agent.models import ModelRouter
 
-    STATE.mkdir(parents=True, exist_ok=True)
-    saver = SqliteSaver(sqlite3.connect(STATE / "threads.sqlite", check_same_thread=False))
-    return build_graph(ModelRouter(), checkpointer=saver)
+    return build_graph(ModelRouter(), checkpointer=_checkpointer())
 
 
 @lru_cache(maxsize=1)
 def _default_store() -> ChatStore:
-    return ChatStore(STATE / "chats.sqlite")
+    return ChatStore(open_sql(STATE / "chats.sqlite"))
 
 
 @lru_cache(maxsize=1)
 def _default_files() -> FileStore:
-    return FileStore(STATE / "uploads")
+    # No persistent disk on free hosts: keep uploads in the database when there is one.
+    return SqlFileStore(open_sql(STATE / "uploads.sqlite")) if database_url() else FileStore(STATE / "uploads")
 
 
 def graph():
