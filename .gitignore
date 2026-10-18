@@ -11,3 +11,4 @@ node_modules/
 *.egg-info/
 state/
 *.tsbuildinfo
+deploy/seed/

@@ -1,0 +1,18 @@
+# Uploaded with `railway up --no-gitignore`, so this file alone decides the build context.
+# Secrets and local state never leave the machine.
+.env
+.env.*
+.git/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+raw/
+state/
+web/
+tests/
+docs/
+*.ipynb
+*.egg-info/
+eval/results/
+warehouse/*.wal
