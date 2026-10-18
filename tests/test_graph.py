@@ -14,7 +14,7 @@ class FakeClaude:
         self.responses = list(responses)
         self.seen: list[list[dict]] = []
 
-    def create(self, messages):
+    def create(self, messages, model=None):
         self.seen.append(copy.deepcopy(messages))
         content, stop = self.responses.pop(0)
         return ClaudeResponse(content=content, stop_reason=stop, model="fake", usage=USAGE)

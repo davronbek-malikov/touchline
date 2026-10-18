@@ -9,7 +9,7 @@ USAGE = {"input_tokens": 1000, "output_tokens": 200, "cache_read_input_tokens": 
 class ScriptedClaude:
     """Searches once, then names the first player it got back."""
 
-    def create(self, messages):
+    def create(self, messages, model=None):
         last = messages[-1]
         if isinstance(last["content"], str):
             return ClaudeResponse([{"type": "tool_use", "id": "t1", "name": "search_players",

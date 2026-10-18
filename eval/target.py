@@ -6,12 +6,13 @@ import uuid
 from langgraph.types import Command
 
 from agent.graph import user_turn
+from agent.messages import is_user_turn
 from agent.reports import report_text
 
 
 def turn_tool_calls(messages: list[dict]) -> list[dict]:
     """tool_use blocks of the latest user turn, paired with their tool_result."""
-    start = max(i for i, m in enumerate(messages) if m["role"] == "user" and isinstance(m["content"], str))
+    start = max(i for i, m in enumerate(messages) if is_user_turn(m))
     uses, results = {}, {}
     for m in messages[start + 1:]:
         for b in m["content"] if isinstance(m["content"], list) else []:

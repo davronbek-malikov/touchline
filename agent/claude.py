@@ -20,7 +20,7 @@ MODEL = os.environ.get("TOUCHLINE_MODEL", "claude-opus-5-5")
 EFFORT = os.environ.get("TOUCHLINE_EFFORT", "medium")
 MAX_TOKENS = 16000
 MAX_TOOL_ROUNDS = 8
-PROMPT_VERSION = "v2"  # v2: notes search + shortlist approval
+PROMPT_VERSION = "v3"  # v2: notes search + shortlist approval; v3: attachments
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 PROMPTS = Path(__file__).parent / "prompts"
@@ -42,7 +42,11 @@ class ClaudeResponse:
 
 
 class ClaudeClient(Protocol):
-    def create(self, messages: list[dict]) -> ClaudeResponse: ...
+    def create(self, messages: list[dict], model: str | None = None) -> ClaudeResponse: ...
+
+
+# Models without a server-side refusal fallback (Haiku 5.5: a declined request stays declined).
+NO_FALLBACK = {"claude-haiku-5-5"}
 
 
 class AnthropicClaude:
@@ -54,15 +58,16 @@ class AnthropicClaude:
         self.client = client or anthropic.Anthropic()
         self._system = [{"type": "text", "text": system_prompt(), "cache_control": {"type": "ephemeral"}}]
 
-    def create(self, messages: list[dict]) -> ClaudeResponse:
-        return _traced_create(self, messages)
+    def create(self, messages: list[dict], model: str | None = None) -> ClaudeResponse:
+        return _traced_create(self, messages, model or self.model)
 
-    def _request(self, messages: list[dict]) -> ClaudeResponse:
+    def _request(self, messages: list[dict], model: str) -> ClaudeResponse:
+        # A declined request is re-run server-side on a fallback model where one exists.
+        fallback = {} if model in NO_FALLBACK else {"betas": [FALLBACK_BETA], "fallbacks": "default"}
         r = self.client.beta.messages.create(
-            model=self.model,
+            model=model,
             max_tokens=MAX_TOKENS,
-            betas=[FALLBACK_BETA],
-            fallbacks="default",  # a declined request is re-run server-side on a fallback model
+            **fallback,
             output_config={"effort": self.effort},
             system=self._system,
             tools=TOOLS,
@@ -78,6 +83,7 @@ class AnthropicClaude:
                 "output_tokens": r.usage.output_tokens,
                 "cache_read_input_tokens": r.usage.cache_read_input_tokens or 0,
                 "cache_creation_input_tokens": r.usage.cache_creation_input_tokens or 0,
+                "model": model,
             },
             stop_details=r.stop_details.model_dump(mode="json") if getattr(r, "stop_details", None) else None,
         )
@@ -100,7 +106,7 @@ def _usage_metadata(outputs: ClaudeResponse) -> dict:
 
 
 @traceable(run_type="llm", name="claude", process_outputs=_usage_metadata,
-           process_inputs=lambda inputs: {"messages": inputs["messages"]},
-           metadata={"ls_provider": "anthropic", "ls_model_name": MODEL, "prompt_version": PROMPT_VERSION})
-def _traced_create(client: AnthropicClaude, messages: list[dict]) -> ClaudeResponse:
-    return client._request(messages)
+           process_inputs=lambda inputs: {"messages": inputs["messages"], "model": inputs["model"]},
+           metadata={"ls_provider": "anthropic", "prompt_version": PROMPT_VERSION})
+def _traced_create(client: AnthropicClaude, messages: list[dict], model: str) -> ClaudeResponse:
+    return client._request(messages, model)

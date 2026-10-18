@@ -21,6 +21,7 @@ from langsmith import traceable
 from pydantic import ValidationError
 
 from agent.claude import MAX_TOOL_ROUNDS, ClaudeClient
+from agent.messages import is_user_turn, user_message, user_text
 from agent.schemas import ProposeShortlistInput
 from agent.tools import SHORTLIST_TOOL, run_tool
 from agent.tools.db import rows
@@ -37,6 +38,7 @@ class AgentState(TypedDict, total=False):
     usage: Annotated[list[dict], operator.add]
     final_text: str
     stop_reason: str
+    model: str | None         # model id for this turn (None = default); see agent.models
     shortlist: dict | None    # the scout's decision on the pending propose_shortlist call
     reports: list[dict]       # reports written this turn (reset per turn)
 
@@ -57,7 +59,7 @@ def build_graph(claude: ClaudeClient, checkpointer=None, max_tool_rounds: int = 
         return report_writer
 
     def agent(state: AgentState) -> dict:
-        r = claude.create(state["messages"])
+        r = claude.create(state["messages"], model=state.get("model"))
         assistant = {"role": "assistant", "content": r.content}
         update = {"messages": [assistant], "usage": [r.usage | {"model": r.model}], "stop_reason": r.stop_reason}
         if r.stop_reason != "tool_use":
@@ -109,8 +111,7 @@ def build_graph(claude: ClaudeClient, checkpointer=None, max_tool_rounds: int = 
         approved = decision.get("approved") or []
         if not approved:
             return {"reports": []}
-        brief = next((m["content"] for m in reversed(state["messages"])
-                      if m["role"] == "user" and isinstance(m["content"], str)), None)
+        brief = next((user_text(m) for m in reversed(state["messages"]) if is_user_turn(m)), None)
 
         def one(pid):
             try:
@@ -197,6 +198,9 @@ def _final_text(r) -> str:
     return text
 
 
-def user_turn(text: str) -> dict:
-    """Input for one new user request."""
-    return {"messages": [{"role": "user", "content": text}], "tool_rounds": 0, "reports": [], "shortlist": None}
+def user_turn(text: str, model: str | None = None, attachment_blocks: list[dict] | None = None,
+              attachment_labels: list[str] | None = None, prefix: list[dict] | None = None) -> dict:
+    """Input for one new user request. `prefix` seeds a fresh thread with an earlier
+    conversation's messages, unchanged, for edit-and-resend and regenerate."""
+    msg = user_message(text, attachment_blocks, attachment_labels)
+    return {"messages": (prefix or []) + [msg], "tool_rounds": 0, "reports": [], "shortlist": None, "model": model}
