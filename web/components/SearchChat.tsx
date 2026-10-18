@@ -34,7 +34,8 @@ export default function SearchChat() {
   const started = useRef(false);
   const bottom = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { api.meta().then(setMeta).catch(() => setMeta(null)); }, []);
+  const [metaError, setMetaError] = useState<string | null>(null);
+  useEffect(() => { api.meta().then(setMeta).catch((e) => setMetaError(e.message)); }, []);
 
   const update = useCallback((fn: (t: Turn) => Turn) => {
     setTurns((ts) => (ts.length ? [...ts.slice(0, -1), fn(ts[ts.length - 1])] : ts));
@@ -135,7 +136,7 @@ export default function SearchChat() {
   const submit = (e: FormEvent) => { e.preventDefault(); ask(draft); };
   const newSearch = () => { setTurns([]); setThreadId(null); router.replace("/", { scroll: false }); };
   const current = turns[turns.length - 1];
-  const offline = meta !== null && !meta.llm;
+  const offline = metaError !== null || (meta !== null && !meta.llm);
 
   if (!turns.length) {
     return (
@@ -145,7 +146,9 @@ export default function SearchChat() {
           Position, age, budget, contract, style. Touchline searches {meta ? meta.active_players.toLocaleString("en-GB") : "about 22,000"} active
           players and explains every pick with numbers from the database and cited sources.
         </p>
-        {offline && (
+        {metaError ? (
+          <p className="notice">{metaError}</p>
+        ) : offline && (
           <p className="notice">
             The agent isn&apos;t switched on for this demo yet. You can still open player profiles, compare players and add notes.
           </p>

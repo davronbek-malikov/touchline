@@ -1,4 +1,9 @@
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
+// Local development falls back to the API on :8000; a production build without
+// NEXT_PUBLIC_API_URL has no backend and says so instead of calling localhost.
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL
+  || (process.env.NODE_ENV === "development" ? "http://localhost:8000" : "")).replace(/\/$/, "");
+
+const NOT_CONNECTED = "This site isn't connected to the Touchline server yet, so live player data and the agent are unavailable.";
 
 export type Coverage = "market only" | "market + events";
 
@@ -105,6 +110,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  if (!API_URL) throw new ApiError(0, NOT_CONNECTED);
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, init);
@@ -149,6 +155,7 @@ export type AgentEvent =
 /** POST to an SSE endpoint and call onEvent for each event until the stream ends. */
 export async function streamAgent(path: string, body: unknown, onEvent: (e: AgentEvent) => void,
                                   signal?: AbortSignal): Promise<void> {
+  if (!API_URL) throw new ApiError(0, NOT_CONNECTED);
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, {
