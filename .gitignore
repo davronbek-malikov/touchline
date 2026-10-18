@@ -12,3 +12,4 @@ node_modules/
 state/
 *.tsbuildinfo
 deploy/seed/
+.vercel/

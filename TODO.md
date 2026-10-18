@@ -60,12 +60,22 @@ Full plan: [docs/PLAN.md](docs/PLAN.md)
 - [ ] LightGBM value model (group k-fold) + SHAP
 - [ ] Similarity engine (TacticalDNA port)
 
+## M6 · ML (skipped for now, at your request)
+- [ ] LightGBM value model + SHAP (`estimate_value`) · TacticalDNA similarity (needs your code)
+
 ## M7 · UI (Next.js)
-- [ ] Search, Dossier, Compare, Shortlist, Notes, About/Eval
-- [ ] FastAPI SSE backend
+- [x] FastAPI backend: agent over SSE (steps, results, shortlist pause, reports, answer), data endpoints, notes, feedback → LangSmith
+- [x] Per-IP rate limit, per-IP and global daily spend caps; X-Forwarded-For only trusted from our proxy
+- [x] Next.js app: Search (live agent log, results table, shortlist approval, cited reports, 👍/👎), Player dossier, Compare (radar), Shortlists, Notes, About the data
+- [x] Checked with screenshots at desktop and phone widths against a scripted backend
 
 ## M8 · Deploy + hardening
-- [ ] Railway + Vercel, rate/spend limits, CI eval gate, README GIF
+- [x] Frontend live on Vercel: https://touchline-pi-lime.vercel.app (project `touchline`)
+- [x] Backend image ready: `Dockerfile`, `railway.json`, `.railwayignore`, `deploy/start.sh`
+- [ ] **You:** choose a Railway plan (trial expired), then: create project + `api` service, volume at `/data`, variables, deploy
+- [ ] Set `NEXT_PUBLIC_API_URL` on Vercel to the Railway URL and redeploy; set `ALLOWED_ORIGINS` on Railway to the Vercel URL
+- [ ] **You:** `ANTHROPIC_API_KEY` on Railway (and an Anthropic console monthly spend limit)
+- [ ] CI eval gate (GitHub Action) once the repo is on GitHub · README GIF
 
 ## M9 · Experiments write-up
 - [ ] Effort / glossary / RAG experiments, results table

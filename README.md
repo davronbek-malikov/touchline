@@ -62,6 +62,13 @@ cp .env.example .env    # add ANTHROPIC_API_KEY and LANGSMITH_API_KEY
 .venv/Scripts/python -m agent.cli "Scouting reports on left-footed centre-backs under 23"
 ```
 
+**Milestones 7–8 (web app, deploy).** The web app is live at **https://touchline-pi-lime.vercel.app**. The backend (`Dockerfile`, `railway.json`) is ready for Railway but not yet deployed, so the live site currently says it isn't connected.
+
+```bash
+.venv/Scripts/python -m uvicorn api.main:app --port 8000     # API locally
+cd web && npm install && npm run dev                          # web app on :3000
+```
+
 Linking accuracy: label `data/labels/link_sample.csv` (fill `is_correct`), then `python -m data.eval_links`.
 
 ## Data credits
